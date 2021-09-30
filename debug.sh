@@ -3,5 +3,5 @@
 set -e
 
 source $PWD/env/Scripts/activate
-py app_debug.py
+py $PWD/app/debug.py
 deactivate

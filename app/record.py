@@ -4,7 +4,16 @@ import os
 import pyautogui as p
 from pynput import mouse
 
-actions = []
+actions = [
+    "settings replay_loops 1",
+    "settings log_comments True",
+    "settings log_actions True",
+    "settings log_debug False",
+    "settings click_delay_min 0.1",
+    "settings click_delay_max 0.2",
+    "settings notification_delay 30",
+    "settings notification_loops 5"
+]
 cwd = os.getcwd()
 
 def log(message):

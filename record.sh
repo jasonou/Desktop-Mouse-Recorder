@@ -8,5 +8,5 @@ if [ "$1" == "" ]; then
 fi
 
 source $PWD/env/Scripts/activate
-py app_record.py "$1"
+py $PWD/app/record.py "$1"
 deactivate

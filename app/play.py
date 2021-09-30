@@ -9,16 +9,30 @@ from dotenv import load_dotenv
 load_dotenv()
 actions = []
 cwd = os.getcwd()
+settings_read = False
+
+class Settings:
+    replay_loops=1
+    log_comments=True
+    log_actions=True
+    log_debug=False
+    click_delay_min=0.1
+    click_delay_max=0.2
+    notification_delay=30
+    notification_loops=5
+
+settings = Settings()
 
 def log(message):
     print(message)
 
 def read():
     filename = f'{cwd}/output/{sys.argv[1]}.txt'
-    with open(filename) as recoridngfile:
+    with open(filename) as recordingfile:
         global actions
-        actions = [action.rstrip() for action in recoridngfile]
-    log(f'[[ Reading Recording File ]] - [[ Success ]]')
+        actions = [action.rstrip() for action in recordingfile]
+    if settings.log_actions:
+        log(f'[[ Reading Recording File ]] - [[ Success ]]')
 
 def do_screenshot():
     img = p.screenshot()
@@ -35,24 +49,29 @@ def do_notification():
         to=os.getenv('TWILIO_RECIEVING_NUMBER'),
         from_=os.getenv('TWILI_SENDING_NUMBER'),
         body="Bot has been paused...")
-    log(f'[[ Notification Triggered ]]: texting')
+    if settings.log_debug:
+        log(f'[[ Notification Triggered ]]: texting')
 
 def do_pause(min_seconds, max_seconds):
     sleepfor = randint(min_seconds*100, max_seconds*100)/100.0
-    log(f'[[ Sleeping For ]] - [[ {str(sleepfor)} ]]')
+    if settings.log_debug:
+        log(f'[[ Sleeping For ]] - [[ {str(sleepfor)} ]]')
     time.sleep(sleepfor)
 
 def do_click(x_loc, y_loc):
-    do_pause(0.1, 0.2)
-    log(f'[[ Clicking ]]: x - {x_loc}, y - {y_loc}')
+    do_pause(settings.click_delay_min, settings.click_delay_max)
+    if settings.log_debug:
+        log(f'[[ Clicking ]]: x - {x_loc}, y - {y_loc}')
     p.click(x=x_loc, y=y_loc)
 
 def verify(index, action, x, y, a, b, c, notify="False", type="Color"):
-    log(f'[[ #{index + 1} Verifying ]]: type = {type}, action = {action}, notify = {str(notify)}')
+    if settings.log_actions:
+        log(f'[[ #{index + 1} Verifying ]]: type = {type}, action = {action}, notify = {str(notify)}')
+    
     timetocheck = time.time()
-    secondstowait = 30
+    secondstowait = settings.notification_delay
     screenshot_done = False
-    timestonotify = 5
+    timestonotify = settings.notification_loops
     timesnotified = 0
 
     while True:
@@ -75,13 +94,28 @@ def verify(index, action, x, y, a, b, c, notify="False", type="Color"):
             if s8 is not None:
                 break
 
+def is_float(string):
+    try:
+        float(string)
+        return True
+    except ValueError:
+        return False
+
 def act():
-    global actions
+    global settings_read
+
     for index, action in enumerate(actions):
-        if (action[0] != '#'):
+        if action.split()[0] == "settings" and not settings_read:
+            readSetting = action.split()
+            if is_float(readSetting[2]):
+                setattr(settings, readSetting[1], float(readSetting[2]))
+            else:
+                setattr(settings, readSetting[1], eval(readSetting[2]))
+        elif action[0] != '#' and action.split()[0] != "settings":
+            settings_read = True
             verify(index, *action.split(' '))
-        else:
-            print(action)
+        elif settings.log_comments:
+            log(action)
 
 if __name__ == '__main__':
     read()

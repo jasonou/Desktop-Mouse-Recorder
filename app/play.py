@@ -6,22 +6,12 @@ import pyautogui as p
 from random import randint
 from twilio.rest import Client
 from dotenv import load_dotenv
+from objects import Settings
 
 load_dotenv()
 actions = []
 cwd = os.getcwd()
 settings_read = False
-
-
-class Settings:
-    replay_loops = 1
-    log_comments = True
-    log_actions = True
-    log_debug = False
-    click_delay_min = 0.1
-    click_delay_max = 0.2
-    notification_delay = 30
-    notification_loops = 5
 
 
 def stop():
@@ -80,7 +70,7 @@ def do_click(x_loc, y_loc):
     p.click(x=x_loc, y=y_loc)
 
 
-def verify(index, action, x, y, a, b, c, notify="False", type="Color"):
+def verify(index, action, x, y, a, b, c, notify="False", type="color"):
     if settings.log_actions:
         log(f'[[ #{index + 1} Verifying ]]: type = {type}, action = {action}, notify = {str(notify)}')
 
@@ -101,11 +91,11 @@ def verify(index, action, x, y, a, b, c, notify="False", type="Color"):
             timetocheck = time.time()
             do_notification()
             timesnotified += 1
-        if type == 'Color':
+        if type == 'color':
             if color == (int(a), int(b), int(c)):
                 do_click(int(x), int(y))
                 break
-        elif type == 'Image':
+        elif type == 'image':
             os.makedirs(f'{cwd}/screenshots', exist_ok=True)
             s8 = p.locateOnScreen(
                 f'{cwd}/screenshots/{x}.PNG',

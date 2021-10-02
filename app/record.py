@@ -7,6 +7,8 @@ from pynput.mouse import Listener as MouseListener
 from pynput.keyboard import Listener as KeyboardListener
 from pynput.mouse import Button
 from pynput.keyboard import Key
+from objects import Action, ActionType, DetectType
+
 
 load_dotenv()
 mouse_listener = None
@@ -36,7 +38,15 @@ def output():
 def on_click(x, y, button, pressed):
     color = pyautogui.pixel(x, y)
     comment = f'# '
-    action = f'click {x} {y} {color[0]} {color[1]} {color[2]} False Color'
+    action = Action(
+        ActionType().click,
+        x,
+        y,
+        color[0],
+        color[1],
+        color[2],
+        False,
+        DetectType().color).getActionString()
 
     if button == Button.left and pressed:
         actions.append(comment)

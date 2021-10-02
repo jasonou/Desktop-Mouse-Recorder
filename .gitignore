@@ -3,3 +3,4 @@ output
 env
 screenshots
 .env
+__pycache__

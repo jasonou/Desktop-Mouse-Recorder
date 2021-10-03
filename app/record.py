@@ -2,12 +2,11 @@ import sys
 import os
 import pyautogui
 from dotenv import load_dotenv
-from pynput import mouse
 from pynput.mouse import Listener as MouseListener
 from pynput.keyboard import Listener as KeyboardListener
 from pynput.mouse import Button
 from pynput.keyboard import Key
-from objects import Action, ActionType, DetectType
+from objects import Action, ActionType, DetectType, Settings
 
 
 load_dotenv()
@@ -15,15 +14,15 @@ mouse_listener = None
 keyboard_listener = None
 current_working_dir = os.getcwd()
 actions = [
-    f'settings replay_loops {os.getenv("REPLAY_LOOPS")}',
-    f'settings log_comments {os.getenv("LOG_COMMENTS")}',
-    f'settings log_actions {os.getenv("LOG_ACTIONS")}',
-    f'settings log_debug {os.getenv("LOG_DEBUGS")}',
-    f'settings click_delay_min {os.getenv("CLICK_DELAY_MIN")}',
-    f'settings click_delay_max {os.getenv("CLICK_DELAY_MAX")}',
-    f'settings notification_delay {os.getenv("NOTIFICATION_DELAY")}',
-    f'settings notification_loops {os.getenv("NOTIFICATION_LOOPS")}'
-]
+    Settings(
+        os.getenv('REPLAY_LOOPS'),
+        os.getenv('LOG_COMMENTS'),
+        os.getenv('LOG_ACTIONS'),
+        os.getenv('LOG_DEBUGS'),
+        os.getenv('CLICK_DELAY_MIN'),
+        os.getenv('CLICK_DELAY_MAX'),
+        os.getenv('NOTIFICATION_DELAY'),
+        os.getenv('NOTIFICATION_LOOPS')).getSettingsString()]
 
 
 def output():

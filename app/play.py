@@ -19,12 +19,22 @@ def stop():
     os._exit(0)
 
 
-settings = Settings()
 keyboard.add_hotkey("ctrl+esc", stop)
 
 
-def log(message):
-    print(message)
+def read_settings():
+    global actions
+    global settings
+
+    settings = Settings(*actions[0].split(' ', 1)[1].split())
+    actions.pop(0)
+
+
+def read_script():
+    filename = f'{cwd}/output/{sys.argv[1]}.txt'
+    with open(filename) as recordingfile:
+        global actions
+        actions = [action.rstrip() for action in recordingfile]
 
 
 def read():
@@ -32,8 +42,6 @@ def read():
     with open(filename) as recordingfile:
         global actions
         actions = [action.rstrip() for action in recordingfile]
-    if settings.log_actions:
-        log(f'[[ Reading Recording File ]] - [[ Success ]]')
 
 
 def do_screenshot():
@@ -53,26 +61,27 @@ def do_notification():
         from_=os.getenv('TWILI_SENDING_NUMBER'),
         body="Bot has been paused...")
     if settings.log_debug:
-        log(f'[[ Notification Triggered ]]: texting')
+        print(f'[[ Notification Triggered ]]: texting')
 
 
 def do_pause(min_seconds, max_seconds):
     sleepfor = randint(min_seconds * 100, max_seconds * 100) / 100.0
     if settings.log_debug:
-        log(f'[[ Sleeping For ]] - [[ {str(sleepfor)} ]]')
+        print(f'[[ Sleeping For ]] - [[ {str(sleepfor)} ]]')
     time.sleep(sleepfor)
 
 
-def do_click(x_loc, y_loc):
+def do_click(x, y):
     do_pause(settings.click_delay_min, settings.click_delay_max)
     if settings.log_debug:
-        log(f'[[ Clicking ]]: x - {x_loc}, y - {y_loc}')
-    p.click(x=x_loc, y=y_loc)
+        print(f'[[ Clicking ]]: x - {x}, y - {y}')
+    p.click(x, y)
 
 
 def verify(index, action, x, y, a, b, c, notify="False", type="color"):
     if settings.log_actions:
-        log(f'[[ #{index + 1} Verifying ]]: type = {type}, action = {action}, notify = {str(notify)}')
+        print(
+            f'[[ #{index + 1} Verifying ]]: type = {type}, action = {action}, notify = {str(notify)}')
 
     timetocheck = time.time()
     secondstowait = settings.notification_delay
@@ -104,32 +113,23 @@ def verify(index, action, x, y, a, b, c, notify="False", type="color"):
                 break
 
 
-def is_float(string):
-    try:
-        float(string)
-        return True
-    except ValueError:
-        return False
-
-
-def act():
-    global settings_read
-
+def do_actions():
     for index, action in enumerate(actions):
-        if action.split()[0] == "settings" and not settings_read:
-            readSetting = action.split()
-            if is_float(readSetting[2]):
-                setattr(settings, readSetting[1], float(readSetting[2]))
-            else:
-                setattr(settings, readSetting[1], eval(readSetting[2]))
-        elif action[0] != '#' and action.split()[0] != "settings":
-            settings_read = True
+        if action[0] != '#':
             verify(index, *action.split(' '))
         elif action[0] == '#' and settings.log_comments:
-            log(action)
+            print(action)
+
+
+def do_loops():
+    global settings
+
+    while settings.loops_done < settings.replay_loops or settings.replay_loops == 0:
+        do_actions()
+        settings.loops_done += 1
 
 
 if __name__ == '__main__':
-    read()
-    while True:
-        act()
+    read_script()
+    read_settings()
+    do_loops()

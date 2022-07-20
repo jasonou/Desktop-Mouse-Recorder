@@ -36,7 +36,7 @@ def output():
 
 def on_click(x, y, button, pressed):
     color = pyautogui.pixel(x, y)
-    comment = f'# '
+    comment = f'# {sys.argv[1]} '
     action = Action(
         ActionType().click,
         x,
@@ -44,7 +44,7 @@ def on_click(x, y, button, pressed):
         color[0],
         color[1],
         color[2],
-        False,
+        "True",
         DetectType().color).getActionString()
 
     if button == Button.left and pressed:

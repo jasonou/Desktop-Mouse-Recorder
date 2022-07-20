@@ -6,12 +6,14 @@ import pyautogui as p
 from random import randint
 from twilio.rest import Client
 from dotenv import load_dotenv
-from objects import Settings
+from objects import Settings, DetectType, NotificationType
 
 load_dotenv()
 actions = []
 cwd = os.getcwd()
 settings_read = False
+previous_action = None
+current_action_comment = None
 
 
 def stop():
@@ -50,7 +52,9 @@ def do_screenshot():
     img.save(f'{cwd}/logging/{time.time()}-PAUSED.PNG')
 
 
-def do_notification():
+def do_notification(status):
+    global current_action_comment
+
     account_sid = os.getenv('TWILIO_SID')
     auth_token = os.getenv('TWILIO_AUTH_TOKEN')
 
@@ -59,7 +63,7 @@ def do_notification():
     client.api.account.messages.create(
         to=os.getenv('TWILIO_RECIEVING_NUMBER'),
         from_=os.getenv('TWILI_SENDING_NUMBER'),
-        body="Bot has been paused...")
+        body=f'Bot for file <<{sys.argv[1]}.txt>> has been {status}...\nCurrent Action: {current_action_comment}')
     if settings.log_debug:
         print(f'[[ Notification Triggered ]]: texting')
 
@@ -78,10 +82,10 @@ def do_click(x, y):
     p.click(x, y)
 
 
-def verify(index, action, x, y, a, b, c, notify="False", type="color"):
+def verify(action, x, y, a, b, c, notify="False", type="color"):
     if settings.log_actions:
         print(
-            f'[[ #{index + 1} Verifying ]]: type = {type}, action = {action}, notify = {str(notify)}')
+            f'<< #{settings.loops_done} >> [[ Verifying ]]: type = {type}, action = {action}, notify = {str(notify)}')
 
     timetocheck = time.time()
     secondstowait = settings.notification_delay
@@ -91,34 +95,44 @@ def verify(index, action, x, y, a, b, c, notify="False", type="color"):
 
     while True:
         color = p.pixel(int(x), int(y))
-        time.sleep(0.05)
+        time.sleep(0.2)
+
         if notify == 'True' and time.time(
         ) - timetocheck > secondstowait and timesnotified < timestonotify:
             if not screenshot_done:
                 do_screenshot()
                 screenshot_done = True
             timetocheck = time.time()
-            do_notification()
+            do_notification(NotificationType().paused)
             timesnotified += 1
-        if type == 'color':
+        if type == DetectType().color:
             if color == (int(a), int(b), int(c)):
                 do_click(int(x), int(y))
                 break
-        elif type == 'image':
+        elif type == DetectType().image:
             os.makedirs(f'{cwd}/screenshots', exist_ok=True)
             s8 = p.locateOnScreen(
-                f'{cwd}/screenshots/{x}.PNG',
-                confidence=0.98)
+                f'{cwd}/screenshots/68.jpg',
+                confidence=0.99)
             if s8 is not None:
+                do_click(int(x), int(y))
                 break
+        elif type == DetectType().noverify:
+            do_click(int(x), int(y))
+            break
 
 
 def do_actions():
-    for index, action in enumerate(actions):
+    global previous_action
+    global current_action_comment
+
+    for action in actions:
         if action[0] != '#':
-            verify(index, *action.split(' '))
+            verify(*action.split(' '))
+            previous_action = action
         elif action[0] == '#' and settings.log_comments:
-            print(action)
+            current_action_comment = action
+            print(current_action_comment)
 
 
 def do_loops():
@@ -133,3 +147,4 @@ if __name__ == '__main__':
     read_script()
     read_settings()
     do_loops()
+    do_notification(NotificationType().stopped)

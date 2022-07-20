@@ -2,19 +2,25 @@ class ActionType:
     click = "click"
 
 
+class NotificationType:
+    paused = "paused"
+    stopped = "stopped"
+
 class DetectType:
     color = "color"
+    noverify = "noverify"
+    image = "image"
 
 
 class Action:
     def __init__(self, action_type, x, y, r, g, b, notification, detect):
         self.action_type = action_type
-        self.x = x
-        self.y = y
-        self.r = r
-        self.g = g
-        self.b = b
-        self.notification = notification
+        self.x = int(x)
+        self.y = int(y)
+        self.r = int(r)
+        self.g = int(g)
+        self.b = int(b)
+        self.notification = eval(notification)
         self.detect = detect
 
     def getActionString(self):

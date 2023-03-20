@@ -1,27 +1,41 @@
 import sys
-import time
 import os
+import logging
+import time
 import keyboard
-import pyautogui as p
+import pyautogui
+from pprint import pformat
 from random import randint
 from twilio.rest import Client
 from dotenv import load_dotenv
-from objects import Settings, DetectType, NotificationType
+from objects import DetectType, NotificationType, Settings, ScriptLogInfo
 
 load_dotenv()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='+ %(levelname)s %(funcName)s:%(lineno)s - %(message)s',
+)
+pyautogui.FAILSAFE = True
+
 actions = []
 cwd = os.getcwd()
-settings_read = False
 previous_action = None
+previous_action_completed = False
 current_action_comment = None
+startTime = time.time()
+exit_script = False
 
 
-def stop():
-    print(f'[[ Exiting... ]]')
-    os._exit(0)
+def stop_script():
+    global exit_script
+    logging.info(f'Success: Exiting')
+    exit_script = True
 
 
-keyboard.add_hotkey("ctrl+esc", stop)
+def setup_listener():
+    logging.info(f'Success: Keyboard Listener Enabled, Press \'Esc\' to Stop.')
+    keyboard.add_hotkey("esc", stop_script)
 
 
 def read_settings():
@@ -32,24 +46,23 @@ def read_settings():
     actions.pop(0)
 
 
-def read_script():
-    filename = f'{cwd}/output/{sys.argv[1]}.txt'
-    with open(filename) as recordingfile:
-        global actions
-        actions = [action.rstrip() for action in recordingfile]
+def load_script():
+    global actions
 
-
-def read():
-    filename = f'{cwd}/output/{sys.argv[1]}.txt'
-    with open(filename) as recordingfile:
-        global actions
-        actions = [action.rstrip() for action in recordingfile]
+    try:
+        with open(f'{cwd}/output/{sys.argv[1]}.txt') as script:
+            actions = [action.rstrip() for action in script]
+            logging.debug(f'{pformat(actions)}')
+        logging.info('Success: Script file found.')
+    except IOError:
+        logging.error(
+            f'Error: {sys.argv[1]}.txt not found')
+        sys.exit(1)
 
 
 def do_screenshot():
-    img = p.screenshot()
     os.makedirs(f'{cwd}/logging', exist_ok=True)
-    img.save(f'{cwd}/logging/{time.time()}-PAUSED.PNG')
+    pyautogui.screenshot().save(f'{cwd}/logging/{time.time()}-PAUSED.PNG')
 
 
 def do_notification(status):
@@ -63,63 +76,67 @@ def do_notification(status):
     client.api.account.messages.create(
         to=os.getenv('TWILIO_RECIEVING_NUMBER'),
         from_=os.getenv('TWILI_SENDING_NUMBER'),
-        body=f'Bot for file <<{sys.argv[1]}.txt>> has been {status}...\nCurrent Action: {current_action_comment}')
-    if settings.log_debug:
-        print(f'[[ Notification Triggered ]]: texting')
+        body=f'[ {status} ]\nFilename: {sys.argv[1]}.txt\nAction: {current_action_comment}\n{ScriptLogInfo(str(time.time() - startTime), settings.loops_done).getScriptLogInfoString()}')
+    logging.debug(f'Success: Notification Triggered')
 
 
 def do_pause(min_seconds, max_seconds):
-    sleepfor = randint(min_seconds * 100, max_seconds * 100) / 100.0
-    if settings.log_debug:
-        print(f'[[ Sleeping For ]] - [[ {str(sleepfor)} ]]')
-    time.sleep(sleepfor)
+    time.sleep(randint(min_seconds * 100, max_seconds * 100) / 100.0)
 
 
 def do_click(x, y):
-    do_pause(settings.click_delay_min, settings.click_delay_max)
-    if settings.log_debug:
-        print(f'[[ Clicking ]]: x - {x}, y - {y}')
-    p.click(x, y)
+    logging.info(
+        f'{settings.loops_done}/{settings.replay_loops}: {current_action_comment}')
+    pyautogui.click(x, y)
 
+def check_notify(notify, timetocheck, timesnotified):
+    return notify == 'True' and time.time() - timetocheck > settings.notification_delay and timesnotified < settings.notification_loops
 
 def verify(action, x, y, a, b, c, notify="False", type="color"):
-    if settings.log_actions:
-        print(
-            f'<< #{settings.loops_done} >> [[ Verifying ]]: type = {type}, action = {action}, notify = {str(notify)}')
+    global previous_action_completed
 
+    logging.debug(
+        f'{settings.loops_done}/{settings.replay_loops}: type={type}, action={action}, notify={str(notify)}')
+
+    previous_action_completed = False
     timetocheck = time.time()
-    secondstowait = settings.notification_delay
     screenshot_done = False
-    timestonotify = settings.notification_loops
     timesnotified = 0
 
-    while True:
-        color = p.pixel(int(x), int(y))
-        time.sleep(0.2)
-
-        if notify == 'True' and time.time(
-        ) - timetocheck > secondstowait and timesnotified < timestonotify:
-            if not screenshot_done:
-                do_screenshot()
-                screenshot_done = True
-            timetocheck = time.time()
-            do_notification(NotificationType().paused)
-            timesnotified += 1
-        if type == DetectType().color:
-            if color == (int(a), int(b), int(c)):
-                do_click(int(x), int(y))
-                break
-        elif type == DetectType().image:
-            os.makedirs(f'{cwd}/screenshots', exist_ok=True)
-            s8 = p.locateOnScreen(
-                f'{cwd}/screenshots/68.jpg',
-                confidence=0.99)
-            if s8 is not None:
-                do_click(int(x), int(y))
-                break
-        elif type == DetectType().noverify:
-            do_click(int(x), int(y))
+    while not exit_script and not previous_action_completed:
+        if check_notify(notify, timetocheck, timesnotified):
+            logging.info("Attemping previous action...")
+            if do_action(*previous_action.split(' ')):
+                logging.info("Success: Previous Action Completed")
+                previous_action_completed = True
+            else:
+                if not screenshot_done and os.getenv('SCREENSHOT') == 'True':
+                    do_screenshot()
+                    screenshot_done = True
+                timetocheck = time.time()
+                do_notification(NotificationType().paused)
+                timesnotified += 1
+        if do_action(action, x, y, a, b, c, notify, type):
             break
+
+
+def do_action(action, x, y, a, b, c, notify="False", type="color"):
+    if type == DetectType().color:
+        if pyautogui.pixel(int(x), int(y)) == (int(a), int(b), int(c)):
+            do_click(int(x), int(y))
+            return True
+    elif type == DetectType().image:
+        os.makedirs(f'{cwd}/screenshots', exist_ok=True)
+        s8 = pyautogui.locateOnScreen(
+            f'{cwd}/screenshots/68.jpg',
+            confidence=0.99)
+        if s8 is not None:
+            do_click(int(x), int(y))
+            return True
+    elif type == DetectType().noverify:
+        do_click(int(x), int(y))
+        return True
+    return False
 
 
 def do_actions():
@@ -130,21 +147,23 @@ def do_actions():
         if action[0] != '#':
             verify(*action.split(' '))
             previous_action = action
-        elif action[0] == '#' and settings.log_comments:
+            do_pause(settings.click_delay_min, settings.click_delay_max)
+        elif action[0] == '#':
             current_action_comment = action
-            print(current_action_comment)
 
 
-def do_loops():
+def run_script():
     global settings
 
-    while settings.loops_done < settings.replay_loops or settings.replay_loops == 0:
+    while (settings.loops_done <
+           settings.replay_loops or settings.replay_loops == 0) and not exit_script:
         do_actions()
         settings.loops_done += 1
 
 
 if __name__ == '__main__':
-    read_script()
+    load_script()
     read_settings()
-    do_loops()
-    do_notification(NotificationType().stopped)
+    setup_listener()
+    run_script()
+    do_notification(NotificationType().completed)

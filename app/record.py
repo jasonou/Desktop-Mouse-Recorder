@@ -1,40 +1,63 @@
 import sys
 import os
 import pyautogui
-from dotenv import load_dotenv
+import time
+
 from pynput.mouse import Listener as MouseListener
 from pynput.keyboard import Listener as KeyboardListener
 from pynput.mouse import Button
 from pynput.keyboard import Key
+
+from dotenv import load_dotenv
+
 from objects import Action, ActionType, DetectType, Settings
 
-
 load_dotenv()
-mouse_listener = None
-keyboard_listener = None
 current_working_dir = os.getcwd()
-actions = [
-    Settings(
-        os.getenv('REPLAY_LOOPS'),
-        os.getenv('LOG_COMMENTS'),
-        os.getenv('LOG_ACTIONS'),
-        os.getenv('LOG_DEBUGS'),
-        os.getenv('CLICK_DELAY_MIN'),
-        os.getenv('CLICK_DELAY_MAX'),
-        os.getenv('NOTIFICATION_DELAY'),
-        os.getenv('NOTIFICATION_LOOPS')).getSettingsString()]
+keyboard_listener = None
+mouse_listener = None
+actions = []
+stopScript = False
 
 
-def output():
-    os.makedirs(f'{current_working_dir}/output', exist_ok=True)
-    filename = f'{current_working_dir}/output/{sys.argv[1]}.txt'
-    with open(filename, 'w') as f:
-        for action in actions:
-            f.write('%s\n' % action)
-    print(f'[[ Recording Generated ]] - [[ {filename} ]]')
+def verify_environment():
+    try:
+        file = open('.env', 'r')
+        print('- Success: Environment file found.', flush=True)
+    except IOError:
+        print(
+            '- Error: Please copy the ".env-template" file and create a ".env" file.',
+            flush=True)
+        sys.exit(1)
+
+
+def load_environment():
+    global actions
+
+    actions = [
+        Settings(
+            os.getenv('REPLAY_LOOPS'),
+            os.getenv('LOG_COMMENTS'),
+            os.getenv('LOG_ACTIONS'),
+            os.getenv('CLICK_DELAY_MIN'),
+            os.getenv('CLICK_DELAY_MAX'),
+            os.getenv('NOTIFICATION_DELAY'),
+            os.getenv('NOTIFICATION_LOOPS')).getSettingsString()]
+    print('- Success: Environment file loaded.', flush=True)
+
+
+def on_press(key):
+    global stopScript
+
+    if key == Key.esc:
+        print(f'- Success: Exiting', flush=True)
+        stopScript = True
+        return False
 
 
 def on_click(x, y, button, pressed):
+    global actions
+
     color = pyautogui.pixel(x, y)
     comment = f'# {sys.argv[1]} '
     action = Action(
@@ -50,36 +73,37 @@ def on_click(x, y, button, pressed):
     if button == Button.left and pressed:
         actions.append(comment)
         actions.append(action)
-        print(f'<< Recording... >> - << {action} >>')
+        print(f'+ Recording: {action}', flush=True)
+    if stopScript:
+        return False
     elif button == Button.right and pressed:
         pass
 
 
-def on_press(key):
-    if key == Key.esc:
-        output()
-        print(f'[[ Exiting... ]]')
-        os._exit(0)
+def output():
+    os.makedirs(f'{current_working_dir}/output', exist_ok=True)
+    filename = f'{current_working_dir}/output/{sys.argv[1]}.txt'
+    with open(filename, 'w') as f:
+        for action in actions:
+            f.write('%s\n' % action)
+    print(f'= Recorded: {filename}', flush=True)
 
 
-def setup_listeners():
-    global mouse_listener, keyboard_listener
-    mouse_listener = MouseListener(on_click=on_click)
+def configure_listeners():
+    global keyboard_listener, mouse_listener
+
     keyboard_listener = KeyboardListener(on_press=on_press)
-
-
-def start_listeners():
-    mouse_listener.start()
     keyboard_listener.start()
+    print(f'- Success: Keyboard Listener Enabled, Press \'Esc\' to Stop.', flush=True)
 
-
-def join_listeners():
-    print(f'[[ Starting Recording ]] - [[ Press "esc" to exit ]]')
-    mouse_listener.join()
-    keyboard_listener.join()
+    with MouseListener(on_click=on_click) as listener:
+        print(f'- Success: Mouse Listener Enabled', flush=True)
+        while stopScript == False:
+            time.sleep(0.3)
 
 
 if __name__ == '__main__':
-    setup_listeners()
-    start_listeners()
-    join_listeners()
+    verify_environment()
+    load_environment()
+    configure_listeners()
+    output()

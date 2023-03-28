@@ -16,12 +16,13 @@ logging.basicConfig(
     level=logging.INFO,
     format='+ %(levelname)s %(funcName)s:%(lineno)s - %(message)s',
 )
-pyautogui.FAILSAFE = True
+pyautogui.FAILSAFE = False
 
 actions = []
 cwd = os.getcwd()
 previous_action = None
 previous_action_completed = False
+retries = 0
 current_action_comment = None
 startTime = time.time()
 exit_script = False
@@ -42,8 +43,11 @@ def read_settings():
     global actions
     global settings
 
+    actions.pop(0)
     settings = Settings(*actions[0].split(' ', 1)[1].split())
     actions.pop(0)
+    if len(sys.argv) == 3: settings.replay_loops = int(sys.argv[2])
+    logging.info('Success: Settings loaded.')
 
 
 def load_script():
@@ -65,9 +69,10 @@ def do_screenshot():
     pyautogui.screenshot().save(f'{cwd}/logging/{time.time()}-PAUSED.PNG')
 
 
-def do_notification(status):
-    global current_action_comment
+def get_current_status(status):
+    return f'[ {status} ]\n+ Filename: {sys.argv[1]}.txt\n+ Action: {current_action_comment}\n{ScriptLogInfo(str(time.time() - startTime), settings.loops_done, retries).getScriptLogInfoString()}'
 
+def do_notification(status):
     account_sid = os.getenv('TWILIO_SID')
     auth_token = os.getenv('TWILIO_AUTH_TOKEN')
 
@@ -76,7 +81,7 @@ def do_notification(status):
     client.api.account.messages.create(
         to=os.getenv('TWILIO_RECIEVING_NUMBER'),
         from_=os.getenv('TWILI_SENDING_NUMBER'),
-        body=f'[ {status} ]\nFilename: {sys.argv[1]}.txt\nAction: {current_action_comment}\n{ScriptLogInfo(str(time.time() - startTime), settings.loops_done).getScriptLogInfoString()}')
+        body=get_current_status(status))
     logging.debug(f'Success: Notification Triggered')
 
 
@@ -87,6 +92,7 @@ def do_pause(min_seconds, max_seconds):
 def do_click(x, y):
     logging.info(
         f'{settings.loops_done}/{settings.replay_loops}: {current_action_comment}')
+    do_pause(settings.click_delay_min, settings.click_delay_max)
     pyautogui.click(x, y)
 
 def check_notify(notify, timetocheck, timesnotified):
@@ -94,6 +100,7 @@ def check_notify(notify, timetocheck, timesnotified):
 
 def verify(action, x, y, a, b, c, notify="False", type="color"):
     global previous_action_completed
+    global retries
 
     logging.debug(
         f'{settings.loops_done}/{settings.replay_loops}: type={type}, action={action}, notify={str(notify)}')
@@ -109,6 +116,7 @@ def verify(action, x, y, a, b, c, notify="False", type="color"):
             if do_action(*previous_action.split(' ')):
                 logging.info("Success: Previous Action Completed")
                 previous_action_completed = True
+                retries += 1
             else:
                 if not screenshot_done and os.getenv('SCREENSHOT') == 'True':
                     do_screenshot()
@@ -166,4 +174,4 @@ if __name__ == '__main__':
     read_settings()
     setup_listener()
     run_script()
-    do_notification(NotificationType().completed)
+    logging.info(get_current_status(NotificationType().completed))

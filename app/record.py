@@ -17,6 +17,7 @@ current_working_dir = os.getcwd()
 keyboard_listener = None
 mouse_listener = None
 actions = []
+settings = None
 stopScript = False
 
 
@@ -33,16 +34,18 @@ def verify_environment():
 
 def load_environment():
     global actions
+    global settings
+
+    settings = Settings(
+        os.getenv('REPLAY_LOOPS'),
+        os.getenv('CLICK_DELAY_MIN'),
+        os.getenv('CLICK_DELAY_MAX'),
+        os.getenv('NOTIFICATION_DELAY'),
+        os.getenv('NOTIFICATION_LOOPS'))
 
     actions = [
-        Settings(
-            os.getenv('REPLAY_LOOPS'),
-            os.getenv('LOG_COMMENTS'),
-            os.getenv('LOG_ACTIONS'),
-            os.getenv('CLICK_DELAY_MIN'),
-            os.getenv('CLICK_DELAY_MAX'),
-            os.getenv('NOTIFICATION_DELAY'),
-            os.getenv('NOTIFICATION_LOOPS')).getSettingsString()]
+        settings.getSettingsColumns(),
+        settings.getSettingsString()]
     print('- Success: Environment file loaded.', flush=True)
 
 

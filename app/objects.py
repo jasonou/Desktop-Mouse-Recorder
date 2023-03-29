@@ -15,18 +15,29 @@ class DetectType:
 
 
 class Action:
-    def __init__(self, action_type, x, y, r, g, b, notification, detect):
+    def __init__(
+        self,
+        action_type,
+        x,
+        y,
+        r,
+        g,
+        b,
+        repeat,
+        notification,
+            detect):
         self.action_type = action_type
         self.x = int(x)
         self.y = int(y)
         self.r = int(r)
         self.g = int(g)
         self.b = int(b)
+        self.repeat = int(repeat)
         self.notification = eval(notification)
         self.detect = detect
 
     def getActionString(self):
-        return f'{self.action_type} {self.x} {self.y} {self.r} {self.g} {self.b} {self.notification} {self.detect}'
+        return f'{self.action_type} {self.x} {self.y} {self.r} {self.g} {self.b} {self.repeat} {self.notification} {self.detect}'
 
 
 class Settings:

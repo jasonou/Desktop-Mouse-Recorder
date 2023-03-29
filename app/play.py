@@ -46,7 +46,8 @@ def read_settings():
     actions.pop(0)
     settings = Settings(*actions[0].split(' ', 1)[1].split())
     actions.pop(0)
-    if len(sys.argv) == 3: settings.replay_loops = int(sys.argv[2])
+    if len(sys.argv) == 3:
+        settings.replay_loops = int(sys.argv[2])
     logging.info('Success: Settings loaded.')
 
 
@@ -72,6 +73,7 @@ def do_screenshot():
 def get_current_status(status):
     return f'[ {status} ]\n+ Filename: {sys.argv[1]}.txt\n+ Action: {current_action_comment}\n{ScriptLogInfo(str(time.time() - startTime), settings.loops_done, retries).getScriptLogInfoString()}'
 
+
 def do_notification(status):
     account_sid = os.getenv('TWILIO_SID')
     auth_token = os.getenv('TWILIO_AUTH_TOKEN')
@@ -95,10 +97,13 @@ def do_click(x, y):
     do_pause(settings.click_delay_min, settings.click_delay_max)
     pyautogui.click(x, y)
 
-def check_notify(notify, timetocheck, timesnotified):
-    return notify == 'True' and time.time() - timetocheck > settings.notification_delay and timesnotified < settings.notification_loops
 
-def verify(action, x, y, a, b, c, notify="False", type="color"):
+def check_notify(notify, timetocheck, timesnotified):
+    return notify == 'True' and time.time() - \
+        timetocheck > settings.notification_delay and timesnotified < settings.notification_loops
+
+
+def verify(action, x, y, a, b, c, repeat=1, notify="False", type="color"):
     global previous_action_completed
     global retries
 
@@ -124,27 +129,29 @@ def verify(action, x, y, a, b, c, notify="False", type="color"):
                 timetocheck = time.time()
                 do_notification(NotificationType().paused)
                 timesnotified += 1
-        if do_action(action, x, y, a, b, c, notify, type):
+        if do_action(action, x, y, a, b, c, repeat, notify, type):
             break
 
 
-def do_action(action, x, y, a, b, c, notify="False", type="color"):
-    if type == DetectType().color:
-        if pyautogui.pixel(int(x), int(y)) == (int(a), int(b), int(c)):
+def do_action(action, x, y, a, b, c, repeat=1, notify="False", type="color"):
+    status = False
+    for i in range(0, int(repeat)):
+        if type == DetectType().color:
+            if pyautogui.pixel(int(x), int(y)) == (int(a), int(b), int(c)):
+                do_click(int(x), int(y))
+                status = True
+        elif type == DetectType().image:
+            os.makedirs(f'{cwd}/screenshots', exist_ok=True)
+            s8 = pyautogui.locateOnScreen(
+                f'{cwd}/screenshots/68.jpg',
+                confidence=0.99)
+            if s8 is not None:
+                do_click(int(x), int(y))
+                status = True
+        elif type == DetectType().noverify:
             do_click(int(x), int(y))
-            return True
-    elif type == DetectType().image:
-        os.makedirs(f'{cwd}/screenshots', exist_ok=True)
-        s8 = pyautogui.locateOnScreen(
-            f'{cwd}/screenshots/68.jpg',
-            confidence=0.99)
-        if s8 is not None:
-            do_click(int(x), int(y))
-            return True
-    elif type == DetectType().noverify:
-        do_click(int(x), int(y))
-        return True
-    return False
+            status = True
+    return status
 
 
 def do_actions():

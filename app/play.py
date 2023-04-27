@@ -181,4 +181,5 @@ if __name__ == '__main__':
     read_settings()
     setup_listener()
     run_script()
+    do_notification(NotificationType().completed)
     logging.info(get_current_status(NotificationType().completed))
